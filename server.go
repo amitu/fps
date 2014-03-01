@@ -4,50 +4,41 @@ import (
 	"fmt"
 	"net"
 	"time"
-	"os"
-	"os/signal"
 	"sync"
 )
 
 var (
-	quit chan bool = make(chan bool, 2)
-	wg sync.WaitGroup
+	wgWorkers, wgServers sync.WaitGroup
 )
 
-func InitWorkers(n int) (workers chan net.Conn) {
+const timeout time.Duration = 1e8
+
+func CreateWorkers(name string, n int) (workers chan net.Conn) {
 	workers = make(chan net.Conn)
 
 	for i := 0; i < n; i++ {
-		go Worker(i, workers)
+		go worker(name, i, workers)
 	}
 	
 	return 
 }
 
-func ServeForever(workerss... chan net.Conn) {
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt)
+func ServeForever() {
+	waitForCtrlC()
 
-	<- sig
+	fmt.Println("Got Ctrl-C, Time to quit.")
 
-	signal.Stop(sig)
+	beginQuitServers()
+	wgServers.Wait()
 
-	fmt.Println("Got signal")
+	beginQuitWorkers()
+	wgWorkers.Wait()
 
-	quit <- true
-
-	wg.Wait()
-
-	<- quit
-
-	for _, workers := range workerss {
-		workers <- nil
-		<- workers
-	}
+	fmt.Println("All done, goodbye.")
 }
 
 func Server(hostPort string, workers chan net.Conn) {
-	wg.Add(1)
+	wgServers.Add(1)
 	go func() {
 		addr, err := net.ResolveTCPAddr("tcp", hostPort)
 		if err != nil {
@@ -65,23 +56,20 @@ func Server(hostPort string, workers chan net.Conn) {
 		fmt.Println("Listening on", hostPort)
 
 		for {
-			server.SetDeadline(time.Now().Add(1e8))
+			server.SetDeadline(time.Now().Add(timeout))
 			conn, err := server.Accept()
 
 			if err != nil {
 
 
 				if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-					select {
-					case <- quit:
+					if timeToQuitServers() {						
 						server.Close()
 						fmt.Println("Server Down,", hostPort)
-						wg.Done()
-						quit <- true
+						wgServers.Done()
 						return
-					default:
-						continue
-					}
+					} 
+					continue
 				}
 
 				fmt.Println(err)
@@ -95,19 +83,22 @@ func Server(hostPort string, workers chan net.Conn) {
 	}()
 }
 
-func Worker(i int, workers chan net.Conn) {
+func worker(name string, i int, workers chan net.Conn) {
+	wgWorkers.Add(1)
 	for {
-		conn := <- workers
-
-		if conn == nil {
-			fmt.Println("Worker done", i)
-			workers <- nil
-			return
+		select {
+		case conn := <- workers:
+			fmt.Println("Worker", name, i)
+			fmt.Fprintf(
+				conn, "\nHello there!\n\n%s:%d welcomes you.\n\n", name, i,
+			)
+			conn.Close()
+		case <- time.After(timeout):
+			if timeToQuitWorkers() {
+				fmt.Println("Worker done", name, i)
+				wgWorkers.Done()	
+				return				
+			}
 		}
-
-		fmt.Println("Worker", i)
-
-		conn.Write([]byte("Hello there!\n"))
-		conn.Close()
 	}
 }
