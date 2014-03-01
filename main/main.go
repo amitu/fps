@@ -9,11 +9,12 @@ import (
 
 func main() {
 	nworkers := flag.Int("workers", 10, "Number of workers to use.")
+	strict := flag.Bool("strict", false, "Should the server be strict?")
 
-	flag.Parse()	
+	flag.Parse()
 
-	workers := fps.CreateWorkers("all", *nworkers)
-	fmt.Printf("Started %d workers.\n", *nworkers)
+	workers := fps.CreateWorkers("all", *nworkers, *strict)
+	fmt.Printf("Started %d workers, strict=%t.\n", *nworkers, *strict)
 
 	for _, server := range flag.Args() {
 		parts := strings.SplitN(server, ":", 2)

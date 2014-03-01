@@ -11,13 +11,14 @@ var (
 	wgWorkers, wgServers sync.WaitGroup
 )
 
-const timeout time.Duration = 1e8
+const timeout time.Duration = 2e8
+const network_timeout time.Duration = 1e10
 
-func CreateWorkers(name string, n int) (workers chan work) {
+func CreateWorkers(name string, n int, strict bool) (workers chan work) {
 	workers = make(chan work)
 
 	for i := 0; i < n; i++ {
-		go worker(name, i, workers)
+		go worker(name, i, workers, strict)
 	}
 	
 	return 
@@ -34,7 +35,7 @@ func Shutdown() {
 }
 
 func ServeForever() {
-	waitForCtrlC()
+	WaitForCtrlC()
 
 	fmt.Println("Got Ctrl-C, time to quit.")
 	Shutdown()
@@ -89,13 +90,22 @@ func Server(hostPort string, workers chan work, policy []byte) {
 	}()
 }
 
-func worker(name string, i int, workers chan work) {
+func worker(name string, i int, workers chan work, strict bool) {
 	wgWorkers.Add(1)
 	for {
 		select {
 		case work := <- workers:
 			fmt.Println("Worker", name, i)
-			work.conn.Write(work.policy)
+			if strict {
+				// TODO:
+				// should read data from socket 
+				// and do some validation on it
+			}
+			work.conn.SetDeadline(time.Now().Add(network_timeout))
+			_, err := work.conn.Write(work.policy)
+			if err != nil {
+				fmt.Println(err)
+			}
 			work.conn.Close()
 		case <- time.After(timeout):
 			if timeToQuitWorkers() {

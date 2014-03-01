@@ -13,7 +13,7 @@ var (
 	quitLock sync.Mutex
 )
 
-func waitForCtrlC() {
+func WaitForCtrlC() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 
