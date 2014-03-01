@@ -23,11 +23,7 @@ func CreateWorkers(name string, n int) (workers chan work) {
 	return 
 }
 
-func ServeForever() {
-	waitForCtrlC()
-
-	fmt.Println("Got Ctrl-C, time to quit.")
-
+func Shutdown() {
 	beginQuitServers()
 	wgServers.Wait()
 
@@ -35,6 +31,13 @@ func ServeForever() {
 	wgWorkers.Wait()
 
 	fmt.Println("All done, goodbye.")
+}
+
+func ServeForever() {
+	waitForCtrlC()
+
+	fmt.Println("Got Ctrl-C, time to quit.")
+	Shutdown()
 }
 
 type work struct {
