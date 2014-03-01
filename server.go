@@ -100,6 +100,8 @@ func worker(name string, i int, workers chan work, strict bool) {
 				// TODO:
 				// should read data from socket 
 				// and do some validation on it
+				// strict client sends this first:
+				// 		<policy-file-request/>\0
 			}
 			work.conn.SetDeadline(time.Now().Add(network_timeout))
 			_, err := work.conn.Write(work.policy)
