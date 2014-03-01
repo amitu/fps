@@ -13,8 +13,8 @@ var (
 
 const timeout time.Duration = 1e8
 
-func CreateWorkers(name string, n int) (workers chan net.Conn) {
-	workers = make(chan net.Conn)
+func CreateWorkers(name string, n int) (workers chan work) {
+	workers = make(chan work)
 
 	for i := 0; i < n; i++ {
 		go worker(name, i, workers)
@@ -37,7 +37,12 @@ func ServeForever() {
 	fmt.Println("All done, goodbye.")
 }
 
-func Server(hostPort string, workers chan net.Conn) {
+type work struct {
+	conn net.Conn
+	policy []byte
+}
+
+func Server(hostPort string, workers chan work, policy []byte) {
 	wgServers.Add(1)
 	go func() {
 		addr, err := net.ResolveTCPAddr("tcp", hostPort)
@@ -78,21 +83,19 @@ func Server(hostPort string, workers chan net.Conn) {
 
 			fmt.Println("New connection on", hostPort)
 
-			workers <- conn;
+			workers <- work{conn, policy};
 		}
 	}()
 }
 
-func worker(name string, i int, workers chan net.Conn) {
+func worker(name string, i int, workers chan work) {
 	wgWorkers.Add(1)
 	for {
 		select {
-		case conn := <- workers:
+		case work := <- workers:
 			fmt.Println("Worker", name, i)
-			fmt.Fprintf(
-				conn, "\nHello there!\n\n%s:%d welcomes you.\n\n", name, i,
-			)
-			conn.Close()
+			work.conn.Write(work.policy)
+			work.conn.Close()
 		case <- time.After(timeout):
 			if timeToQuitWorkers() {
 				fmt.Println("Worker done", name, i)
