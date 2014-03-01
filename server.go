@@ -26,7 +26,7 @@ func CreateWorkers(name string, n int) (workers chan work) {
 func ServeForever() {
 	waitForCtrlC()
 
-	fmt.Println("Got Ctrl-C, Time to quit.")
+	fmt.Println("Got Ctrl-C, time to quit.")
 
 	beginQuitServers()
 	wgServers.Wait()
@@ -47,15 +47,13 @@ func Server(hostPort string, workers chan work, policy []byte) {
 	go func() {
 		addr, err := net.ResolveTCPAddr("tcp", hostPort)
 		if err != nil {
-			fmt.Println(err)
-			return
+			panic(err)
 		}
 
 		server, err := net.ListenTCP("tcp", addr)
 
 		if err != nil {
-			fmt.Println(err)
-			return
+			panic(err)
 		}
 
 		fmt.Println("Listening on", hostPort)
@@ -70,7 +68,7 @@ func Server(hostPort string, workers chan work, policy []byte) {
 				if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 					if timeToQuitServers() {						
 						server.Close()
-						fmt.Println("Server Down,", hostPort)
+						fmt.Println("Server down,", hostPort)
 						wgServers.Done()
 						return
 					} 

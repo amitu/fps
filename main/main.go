@@ -1,13 +1,30 @@
 package main
 
-import "github.com/amitu/fps"
+import (
+	"github.com/amitu/fps"
+	"flag"
+	"fmt"
+	"strings"
+)	
 
 func main() {
-	workers := fps.CreateWorkers("all", 10)
-	policy := fps.PolicyFromFile("policy.xml")
+	nworkers := flag.Int("workers", 10, "Number of workers to use.")
 
-	fps.Server("127.0.0.1:8000", workers, policy)
-	fps.Server("127.0.0.1:8001", workers, policy)
+	flag.Parse()	
+
+	workers := fps.CreateWorkers("all", *nworkers)
+	fmt.Printf("Started %d workers.\n", *nworkers)
+
+	for _, server := range flag.Args() {
+		parts := strings.SplitN(server, ":", 2)
+
+		if len(parts) != 2 {
+			fmt.Println("Bad argument:", server)
+			return
+		}
+
+		fps.Server(parts[1], workers, fps.PolicyFromFile(parts[0]))
+	}
 
 	fps.ServeForever()
 }
